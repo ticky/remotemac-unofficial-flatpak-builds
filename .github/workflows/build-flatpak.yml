@@ -1,0 +1,50 @@
+name: Build Flatpak
+
+on:
+  push:
+    branches: [main]
+    paths: ['remotemac/**']
+  pull_request:
+    paths: ['remotemac/**']
+  workflow_dispatch:
+
+jobs:
+  flatpak:
+    name: Build Flatpak (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: remotemac/go.mod
+          cache: false
+
+      # flatpak-builder has no network: vendor where the manifest's archive source looks.
+      - name: Vendor Go modules
+        working-directory: remotemac
+        run: |
+          go mod vendor
+          tar -C vendor -cJf packaging/flatpak/vendor.tar.xz .
+          rm -rf vendor
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: remotemac/packaging/flatpak/com.lucidfabrics.RemoteMac.yml
+          bundle: RemoteMac-${{ matrix.arch }}.flatpak
+          artifact-name: RemoteMac-${{ matrix.arch }}
+          arch: ${{ matrix.arch }}
+          verbose: true

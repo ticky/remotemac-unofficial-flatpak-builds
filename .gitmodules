@@ -1,0 +1,3 @@
+[submodule "remotemac"]
+	path = remotemac
+	url = https://github.com/lucid-fabrics/remotemac.git
